@@ -48,10 +48,11 @@ library(tidyverse)
 library(janitor)
 library(here)
 library(dplyr)
-library(effsize) # to do Cohen's effect size test
+library(effsize) 
 library(kableExtra) # to make tables
 library(car) # to do Levene test  
 library(ggbeeswarm) # to do our beeswarm graph
+library(effsize) # to do Cohen's effect size test
 
 #We read the Mack Creek vertebrates dataset, clean names and filter the relevant species
 mcreek_vertebrates <- read_csv(here::here("mack_creek_vertebrates.csv")) %>% 
@@ -192,7 +193,6 @@ sala_weight_s_leneve_p <-  na.omit(sala_weight_s_leneve) %>%
   select(pr_f)
 ```
 
-The salamander's weight by forest section presents a not normal distribution. We conduct and Leneve Test to evaluate if variances are equal between forest sections, and null hypothesis is retained (p-value=`r round(sala_weight_s_leneve_p$pr_f,3)`, *p*<0.05).
 
 ```{r}
 
@@ -226,6 +226,8 @@ sala_graph2 <- ggplot()+
 ```
 
 
+The salamander's weight doesnt present a normal distribution for any of the forest conditions (Appendix 1). However, the Leneve Test suggest we should retain the null hypothesis that weight  variances between forest sections are equal (p-value=`r round(sala_weight_s_leneve_p$pr_f,3)`, *p*<0.05). Considering its relative robustness even when the normality assupmtion does not apply, we will use the ANOVA test.
+
 ```{r}
 
 # Anova test of salamander weight by forest condition
@@ -238,7 +240,7 @@ aov_outputs_s_c <- unlist(summary(sala_weight_s_aov))
 
 ```
 
-According to the ANOVA test, the salamander's weight means across the forest sections (old growth and clear cut) aren't the same (one-way ANOVA, F(`r aov_outputs_s_c[1]`, `r aov_outputs_s_c[2]`) = `r round(aov_outputs_s_c[7],2)`, *p* = `r round(aov_outputs_s_c[9],10)`).
+According to the ANOVA test, the salamander's weight means across the forest sections (old growth and clear cut) differ significantly (one-way ANOVA, F(`r aov_outputs_s_c[1]`, `r aov_outputs_s_c[2]`) = `r round(aov_outputs_s_c[7],2)`, *p* = `r round(aov_outputs_s_c[9],10)`).
 
 ### 3.5 Mean weights of salamander by location
 
@@ -331,13 +333,39 @@ aov_outputs_w_c <- unlist(summary(sala_weight_c_aov))
 sala_post_hoc_w_c <- TukeyHSD(sala_weight_c_aov)
 #sala_post_hoc_w_c
 
+# We apply the cohen test to evaluate the effect size
+
+# First the datasets
+
+# Dataset year 2012 and for MPA sites POOL
+pool_weight <- lobster_compare %>% 
+  filter(year==2012, MPA=="MPA") %>% # We keep values 2012 and MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Dataset year 2012 and for non MPA sites CASCADE
+cascade_weight <- lobster_compare %>% 
+  filter(year==2012,  MPA=="non MPA") %>% # We keep values 2012 and non MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# Dataset year 2018 and for MPA sites side
+side_channel_weight <- lobster_compare %>% 
+  filter(year==2018, MPA=="MPA") %>% # We keep values 2018 and MPA
+  select(year, size_mm, MPA) # We keep the relevant columns
+
+# T test
+
+sala_pool_side = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+
+sala_pool_cascade = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+
+sala_side_cascade = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+
 ```
 
 
-According to the ANOVA test, the salamander's weight means across the places where they are found (cascades, pools and side channels) aren't the same (one-way ANOVA with post-hoc Tukey's HSD, F(`r aov_outputs_w_c[1]`, `r aov_outputs_w_c[2]`) = `r round(aov_outputs_w_c[7],2)`, *p* = `r round(aov_outputs_w_c[9],10)`). According to Tukey test, the only pair where the weight means dont differ significantly is between side channels and cascades (mean side channels= , mean cascades= , p-value = 0.16, *p*<0.05). 
+According to the ANOVA test, the salamander's weight means across the places where they are found (cascades, pools and side channels) aren't the same (one-way ANOVA with post-hoc Tukey's HSD, F(`r aov_outputs_w_c[1]`, `r aov_outputs_w_c[2]`) = `r round(aov_outputs_w_c[7],2)`, *p* = `r round(aov_outputs_w_c[9],10)`). According to Tukey test, the only pair where the weight means dont differ significantly is between side channels and cascades (mean side channels= , mean cascades= , p-value = 0.16, *p*<0.05). On the other hand, the size effect is (Cohen’s d= `r abs(round(cohen_weight_c$estimate, 2))`).
 
 ```{r}
-# EFFECT SIZES????
 
 ```
 
@@ -376,6 +404,16 @@ According to the ANOVA test, the salamander's weight means across the places whe
        caption = "Appendix 2: QQ graph for salamander weights (gram) by classification 2017")+
   theme(plot.caption = element_text(hjust = 0)) +
     facet_wrap(~unittype)
+
+```
+
+```{r}
+# To erase all objects
+# rm(list = ls()) 
+
+#/////////////////////////////////
+# The End
+#/////////////////////////////////
 
 ```
 
