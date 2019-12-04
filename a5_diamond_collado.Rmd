@@ -48,7 +48,7 @@ library(tidyverse)
 library(janitor)
 library(here)
 library(dplyr)
-library(effsize) 
+library(effsize) # to make Cohen's size test
 library(kableExtra) # to make tables
 library(car) # to do Levene test  
 library(ggbeeswarm) # to do our beeswarm graph
@@ -65,7 +65,8 @@ salamander_counts <- mcreek_vertebrates %>%
 
 # We save the caption of the figure1
 titlefigure1 = expression(paste(bold("Figure 1: Salamander abundance 1989-2017:"), 
-                                " Data collected from Old growth (OG) and clear cut(CC) forests.")) 
+                                " Data collected from Old growth (OG) 
+                                \nand clear cut(CC) forests.")) 
 
 # We graph the salamander abundance throught time
 sala_graph1 <- ggplot(salamander_counts, aes(x= year, 
@@ -149,7 +150,7 @@ Considering the discussion of the previous section, it is reasonable to test the
 It would be premature to draw broad inferences from this test, considering we are only evaluating the year 2017 and not the whole period of available data. With all things considered, this might not be the most meaningful interpretation of the data, given it is the longest continuous record of salamander populations. 
 
 
-### 3.4 Weights of salamanders by section
+### 3.4 Mean weights of salamanders by forest condition 2017
 
 ```{r}
 # We construct our salamander weight database
@@ -225,7 +226,6 @@ sala_graph2 <- ggplot()+
   theme(plot.caption = element_text(hjust = 0)) # We center caption to the left
 ```
 
-
 The salamander's weight doesnt present a normal distribution for any of the forest conditions (Appendix 1). However, the Leneve Test suggest we should retain the null hypothesis that weight  variances between forest sections are equal (p-value=`r round(sala_weight_s_leneve_p$pr_f,3)`, *p*<0.05). Considering its relative robustness even when the normality assupmtion does not apply, we will use the ANOVA test.
 
 ```{r}
@@ -242,7 +242,7 @@ aov_outputs_s_c <- unlist(summary(sala_weight_s_aov))
 
 According to the ANOVA test, the salamander's weight means across the forest sections (old growth and clear cut) differ significantly (one-way ANOVA, F(`r aov_outputs_s_c[1]`, `r aov_outputs_s_c[2]`) = `r round(aov_outputs_s_c[7],2)`, *p* = `r round(aov_outputs_s_c[9],10)`).
 
-### 3.5 Mean weights of salamander by location
+### 3.5 Mean weights of salamander by location 2017
 
 
 ```{r}
@@ -270,6 +270,7 @@ colnames(sala_c_summary_1) <- c("Location","Mean", "SD", "Sample size") # Format
 ```
 
 
+
 ```{r}
 
 # We create our final table included caption, column width and bootstrap striped
@@ -280,6 +281,16 @@ kable(sala_c_summary_1,
 
 ```
 
+
+```{r}
+# Leneve test
+sala_weight_c_leneve <- leveneTest(weight~unittype, data= sala_class_weight_2017)
+
+# We extract the p value of our Leneve test
+sala_weight_c_leneve_p <-  na.omit(sala_weight_c_leneve) %>% 
+ clean_names() %>% 
+  select(pr_f)
+```
 
 ```{r}
 
@@ -313,6 +324,7 @@ sala_graph3 <- ggplot()+
 
 ```
 
+The salamander's weight doesn’t present a normal distribution for any location (Appendix 2). However, the Leneve Test suggest we should retain the null hypothesis that weight variances between forest sections are equal (p-value=`r round(sala_weight_c_leneve_p$pr_f,2)`, *p*<0.05). Considering its relative robustness even when the normality assumption does not apply, we will use the ANOVA test.
 
 ```{r}
 
@@ -333,41 +345,47 @@ aov_outputs_w_c <- unlist(summary(sala_weight_c_aov))
 sala_post_hoc_w_c <- TukeyHSD(sala_weight_c_aov)
 #sala_post_hoc_w_c
 
-# We apply the cohen test to evaluate the effect size
+```
 
-# First the datasets
+According to the ANOVA test, the salamander's weight means across the places where they are found (cascades, pools and side channels) aren't the same (one-way ANOVA with post-hoc Tukey's HSD, F(`r aov_outputs_w_c[1]`, `r aov_outputs_w_c[2]`) = `r round(aov_outputs_w_c[7],2)`, *p* = `r round(aov_outputs_w_c[9],2)`). According to Tukey test, the only pair where the weight means dont differ significantly is between side channels and cascades (p-value = 0.16, *p*<0.05). 
 
-# Dataset year 2012 and for MPA sites POOL
-pool_weight <- lobster_compare %>% 
-  filter(year==2012, MPA=="MPA") %>% # We keep values 2012 and MPA
-  select(year, size_mm, MPA) # We keep the relevant columns
+```{r}
+# Dataset year 2017 and POOL location
 
-# Dataset year 2012 and for non MPA sites CASCADE
-cascade_weight <- lobster_compare %>% 
-  filter(year==2012,  MPA=="non MPA") %>% # We keep values 2012 and non MPA
-  select(year, size_mm, MPA) # We keep the relevant columns
+cohen_pool_w <- na.omit(sala_class_weight_2017) %>% 
+  filter(unittype=="P") 
 
-# Dataset year 2018 and for MPA sites side
-side_channel_weight <- lobster_compare %>% 
-  filter(year==2018, MPA=="MPA") %>% # We keep values 2018 and MPA
-  select(year, size_mm, MPA) # We keep the relevant columns
+# Dataset year 2017 and CASCADE location
+cohen_cascade_w <- na.omit(sala_class_weight_2017) %>% 
+ filter(unittype=="C")
+  
+# Dataset year 2017 and SIDE CHANNEL location
+cohen_side_channel_w <- na.omit(sala_class_weight_2017) %>% 
+filter(unittype=="SC") 
 
 # T test
 
-sala_pool_side = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+sala_pool_side = effsize::cohen.d(cohen_pool_w$weight, cohen_side_channel_w$weight, paired=FALSE)
 
-sala_pool_cascade = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+sala_pool_cascade = effsize::cohen.d(cohen_pool_w$weight, cohen_cascade_w$weight, paired=FALSE)
 
-sala_side_cascade = t.test(lobster_2018_MPA$size_mm, lobster_2018_non$size_mm, paired=FALSE)
+sala_side_cascade = effsize::cohen.d(cohen_side_channel_w$weight, cohen_cascade_w$weight, paired=FALSE)
 
-```
-
-
-According to the ANOVA test, the salamander's weight means across the places where they are found (cascades, pools and side channels) aren't the same (one-way ANOVA with post-hoc Tukey's HSD, F(`r aov_outputs_w_c[1]`, `r aov_outputs_w_c[2]`) = `r round(aov_outputs_w_c[7],2)`, *p* = `r round(aov_outputs_w_c[9],10)`). According to Tukey test, the only pair where the weight means dont differ significantly is between side channels and cascades (mean side channels= , mean cascades= , p-value = 0.16, *p*<0.05). On the other hand, the size effect is (Cohen’s d= `r abs(round(cohen_weight_c$estimate, 2))`).
-
-```{r}
+# sala_pool_side 
+# sala_pool_cascade 
+# sala_side_cascade 
 
 ```
+
+In addition, we employ a Cohen's effect size test to quantify the difference of salamander weights by each pair of locations:
+
+- Pool vs. side channel: the effect size is **moderate** (Cohen’s d= `r abs(round(sala_pool_side$estimate, 2))`)
+- Pool vs. cascade: the effect size is **low** (Cohen’s d= `r abs(round(sala_pool_cascade$estimate, 2))`)
+- Side channel vs. cascade: the effect size is **barely moderate** (Cohen’s d= `r abs(round(sala_side_cascade$estimate, 2))`)
+
+In general, the difference in weight means are moderate across location groups (P vs SC and SC vs C), but the effect size for SD and C is nearer to a low value (`r abs(round(sala_side_cascade$estimate, 2))`). We take a **conservative approach** and consider there is no mean weight significant difference for P vs. C and SC vs C. On the other hand, there is a moderate size effect for salamander found in pools versus side channels. This results seems reasonable if we consider that adult (and bigger) salamander prefer slow waters to mate and reproduce. 
+
+Finally, it is important to highlight that using mean tests arent the best approach for the current analysis. In **Figure 3**, we appreciate the presence of outliers observations and distribution concentration on the low weigth values. This skewness is also seen in Appendix 2. Under this context, future research should use median based tests because they are less influenced by outlier values and skewness. It is likely that under this context, some contradictions found would be eliminated. Moreover, we recommend to conduct this assessment through all the period of study to take advantage of the data series richness.
 
 ## 4. Summary
 
